@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: restaurant-frontend
+    env: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist/restaurant-frontend-app/browser
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
