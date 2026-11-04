@@ -41,14 +41,18 @@ describe('AuthenticationService', () => {
     expect(service.getTokens()).toBeNull();
   });
 
-  it('creates a local demo account when backend registration returns an HTTP error', async () => {
-    spyOn(window, 'fetch').and.resolveTo(new Response('', { status: 503 }));
-    spyOn(console, 'warn');
+  it('reports backend registration errors without creating a local account', async () => {
+    spyOn(window, 'fetch').and.resolveTo(
+      new Response(JSON.stringify({ error: 'Email is already registered.' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
 
     const result = await service.register('Demo', 'User', 'demo@example.com', 'password', 'password');
 
-    expect(result).toEqual({ success: true, isDemo: true });
-    expect(service.getUser()?.email).toBe('demo@example.com');
+    expect(result).toEqual({ success: false, message: 'Email is already registered.' });
+    expect(service.getUser()).toBeNull();
   });
 
   it('uses the backend registration response when it succeeds', async () => {
@@ -60,13 +64,16 @@ describe('AuthenticationService', () => {
     expect(service.getUser()).toBeNull();
   });
 
-  it('creates a local demo account when backend registration has a network error', async () => {
+  it('reports a network error without creating a local account', async () => {
     spyOn(window, 'fetch').and.rejectWith(new Error('Network unavailable'));
-    spyOn(console, 'warn');
+    spyOn(console, 'error');
 
     const result = await service.register('Demo', 'User', 'demo@example.com', 'password', 'password');
 
-    expect(result).toEqual({ success: true, isDemo: true });
-    expect(service.getUser()?.email).toBe('demo@example.com');
+    expect(result).toEqual({
+      success: false,
+      message: 'Could not reach the registration service. Please try again later.',
+    });
+    expect(service.getUser()).toBeNull();
   });
 });

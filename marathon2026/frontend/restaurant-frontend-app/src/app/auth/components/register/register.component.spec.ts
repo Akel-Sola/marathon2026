@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { RegisterComponent } from './register.component';
 import { API_BASE_URL } from '@app/shared/config/api-base-url.token';
-import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { AuthenticationService } from '@app/auth/services/authentication.service';
 
 describe('RegisterComponent', () => {
@@ -13,6 +13,7 @@ describe('RegisterComponent', () => {
     isDemoMode = false;
     await TestBed.configureTestingModule({
       providers: [
+        provideRouter([]),
         { provide: API_BASE_URL, useValue: 'https://test.api' },
         {
           provide: ActivatedRoute,
@@ -55,5 +56,56 @@ describe('RegisterComponent', () => {
     expect(demoRegisterSpy).toHaveBeenCalledWith('Demo', 'User', 'demo@example.com');
     expect(registerSpy).not.toHaveBeenCalled();
     expect(component.registrationSuccessful).toBeTrue();
+  });
+
+  it('requires first and last names to have at least two characters', () => {
+    component.registerForm.patchValue({ firstName: 'A', lastName: 'B' });
+
+    expect(component.firstName?.hasError('minlength')).toBeTrue();
+    expect(component.lastName?.hasError('minlength')).toBeTrue();
+    expect(component.registerForm.invalid).toBeTrue();
+  });
+
+  it('shows backend registration errors without navigating away', async () => {
+    const auth = TestBed.inject(AuthenticationService);
+    spyOn(auth, 'register').and.resolveTo({
+      success: false,
+      message: 'Email is already registered.',
+    });
+    const router = TestBed.inject(Router);
+    spyOn(router, 'navigate').and.resolveTo(true);
+    component.registerForm.setValue({
+      firstName: 'Demo',
+      lastName: 'User',
+      email: 'demo@example.com',
+      password: 'Secure@123',
+      confirmPassword: 'Secure@123',
+    });
+
+    await component.onSubmit();
+
+    expect(component.unsuccessfulRegistration).toBeTrue();
+    expect(component.errorMessage).toBe('Email is already registered.');
+    expect(router.navigate).not.toHaveBeenCalled();
+  });
+
+  it('confirms successful real registration on the sign-in page', async () => {
+    const auth = TestBed.inject(AuthenticationService);
+    spyOn(auth, 'register').and.resolveTo({ success: true });
+    const router = TestBed.inject(Router);
+    spyOn(router, 'navigate').and.resolveTo(true);
+    component.registerForm.setValue({
+      firstName: 'Demo',
+      lastName: 'User',
+      email: 'demo@example.com',
+      password: 'Secure@123',
+      confirmPassword: 'Secure@123',
+    });
+
+    await component.onSubmit();
+
+    expect(router.navigate).toHaveBeenCalledWith(['/login'], {
+      queryParams: { registered: true },
+    });
   });
 });

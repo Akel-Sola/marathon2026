@@ -55,7 +55,7 @@ export class GroupOrderPageComponent implements OnInit {
       takeUntilDestroyed(this.destroyRef),
     ).subscribe({
       next: ({ sessions, status, owner }) => { this.participants.set(sessions.participants); this.status.set(status.status); this.ownerSessionId.set(owner.guestSessionId); this.loading.set(false); },
-      error: () => { this.error.set('Group reservation not found'); this.loading.set(false); },
+      error: () => { this.error.set('Unable to load the group pre-order. Check your connection and try again.'); this.loading.set(false); },
     });
   }
 

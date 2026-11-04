@@ -243,7 +243,9 @@ export class TablesComponent implements OnInit {
   }
 
   onMakeReservation(tableId: string, timeRange: TimeRange, guests: number): void {
-    this.redirectIfNotLoggedIn();
+    if (!this.redirectIfNotLoggedIn()) {
+      return;
+    }
     this.selectedTimeRange = timeRange;
 
     const date = revertFormatDate(this.selectedFilter.date!);
@@ -290,12 +292,14 @@ export class TablesComponent implements OnInit {
     this.loadAvailableTables();
   }
 
-  private redirectIfNotLoggedIn() {
+  private redirectIfNotLoggedIn(): boolean {
     const token = this.authenticationService.getToken();
     if (!token) {
       console.error('User is not authenticated. Cannot make a reservation.');
       this.router.navigate(['/login']);
+      return false;
     }
+    return true;
   }
 
   onCloseReservationConfirmed(): void {
@@ -309,7 +313,9 @@ export class TablesComponent implements OnInit {
   }
 
   onCancelReservation(): void {
-    this.redirectIfNotLoggedIn();
+    if (!this.redirectIfNotLoggedIn()) {
+      return;
+    }
     this.reservationService
       .cancelReservation$(this.reservation!.id)
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -321,7 +327,9 @@ export class TablesComponent implements OnInit {
   }
 
   onSubmitEditReservation(timeRange: TimeRange, guests: number): void {
-    this.redirectIfNotLoggedIn();
+    if (!this.redirectIfNotLoggedIn()) {
+      return;
+    }
     this.reservationService
       .editReservation$(this.reservation!.id, timeRange, guests)
       .pipe(takeUntilDestroyed(this.destroyRef))

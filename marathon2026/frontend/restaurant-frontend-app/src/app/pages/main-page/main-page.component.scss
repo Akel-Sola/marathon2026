@@ -246,6 +246,20 @@
   }
 }
 
+@media screen and (max-width: 425px) {
+  .popular-dishes-section .dish-card .dish-info {
+    flex-direction: column;
+    align-items: flex-start;
+
+    .dish-meta {
+      width: 100%;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+  }
+}
+
 // LOCATIONS SECTION
 .locations-section {
   display: flex;

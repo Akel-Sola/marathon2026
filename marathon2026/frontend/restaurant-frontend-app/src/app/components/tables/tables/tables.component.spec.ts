@@ -3,6 +3,8 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { of, Subject, throwError } from 'rxjs';
+import { Router } from '@angular/router';
+import { AuthenticationService } from '@app/auth/services/authentication.service';
 import { Reservation, ReservationStatus } from '@app/models/reservations/reservation.model';
 import { ReservationService } from '@app/services/reservation/reservation.service';
 import { TableService } from '@app/services/table/table.service';
@@ -30,6 +32,7 @@ describe('ReservationsPageComponent', () => {
   let fixture: ComponentFixture<TablesComponent>;
   let reservationService: jasmine.SpyObj<ReservationService>;
   let toastService: jasmine.SpyObj<ToastService>;
+  let getTokenSpy: jasmine.Spy;
 
   beforeEach(async () => {
     reservationService = jasmine.createSpyObj<ReservationService>('ReservationService', [
@@ -49,6 +52,9 @@ describe('ReservationsPageComponent', () => {
       imports: [TablesComponent],
     }).compileComponents();
 
+    getTokenSpy = spyOn(TestBed.inject(AuthenticationService), 'getToken').and.returnValue(
+      'valid-id-token'
+    );
     fixture = TestBed.createComponent(TablesComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
@@ -64,6 +70,21 @@ describe('ReservationsPageComponent', () => {
 
   it('initializes time options for the first available date', () => {
     expect(component.timeOptions.length).toBeGreaterThan(0);
+  });
+
+  it('stops reservation submission after redirecting an unauthenticated user', () => {
+    getTokenSpy.and.returnValue(undefined);
+    const router = TestBed.inject(Router);
+    spyOn(router, 'navigate').and.resolveTo(true);
+
+    component.onMakeReservation(
+      'table-1',
+      { start: '2026-10-17T12:00:00Z', end: '2026-10-17T14:00:00Z' },
+      2
+    );
+
+    expect(router.navigate).toHaveBeenCalledWith(['/login']);
+    expect(reservationService.makeReservation$).not.toHaveBeenCalled();
   });
 
   it('refreshes time options and stores the date when a date is selected', () => {

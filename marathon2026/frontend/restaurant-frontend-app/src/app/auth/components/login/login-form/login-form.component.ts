@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, output, s
 
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 import { first } from 'rxjs/operators';
 
 import { AuthenticationService } from '@app/auth/services/authentication.service';
@@ -23,7 +24,9 @@ export class LoginFormComponent {
     private readonly fb = inject(FormBuilder);
     private readonly auth = inject(AuthenticationService);
     private readonly router = inject(Router);
+    private readonly route = inject(ActivatedRoute);
     private readonly draftService = inject(LoginDraftService);
+    readonly registrationComplete = this.route.snapshot.queryParamMap.has('registered');
 
     // UI state as signals
     readonly showPassword = signal(false);

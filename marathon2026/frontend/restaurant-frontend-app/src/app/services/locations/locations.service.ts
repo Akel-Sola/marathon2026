@@ -1,7 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import { API_BASE_URL } from '@app/shared/config/api-base-url.token';
 import { HttpClient, HttpContext } from '@angular/common/http';
-import { catchError, Observable, of } from 'rxjs';
+import { catchError, map, Observable, of } from 'rxjs';
 import { DishListResponse } from '@app/models/dishes/dish-list-response.model';
 import { LocationResponse } from '@app/models/locations/location-response.model';
 import { MOCK_DISHES } from '@app/services/dishes/dishes.mock';
@@ -22,13 +22,17 @@ export class LocationsService {
       return of(MOCK_LOCATIONS);
     }
 
-    return this.withFallback(
-      this.http.get<LocationResponse[]>(`${this.baseUrl}/locations`, {
+    return this.http
+      .get<LocationResponse[]>(`${this.baseUrl}/locations`, {
         context: new HttpContext().set(SKIP_ERROR_TOAST, true),
-      }),
-      MOCK_LOCATIONS,
-      'locations'
-    );
+      })
+      .pipe(
+        map((locations) => locations.length > 0 ? locations : MOCK_LOCATIONS),
+        catchError((error: unknown) => {
+          console.warn('Unable to load locations from the backend; using demo data.', error);
+          return of(MOCK_LOCATIONS);
+        })
+      );
   }
 
   getLocationById(id: string): Observable<LocationResponse> {

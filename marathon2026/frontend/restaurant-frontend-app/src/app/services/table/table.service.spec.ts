@@ -11,27 +11,30 @@ describe('TableService', () => {
   let service: TableService;
   let httpMock: HttpTestingController;
 
-  beforeEach(() => {
+  function configure(baseUrl = 'https://test.api'): void {
     TestBed.configureTestingModule({
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: API_BASE_URL, useValue: 'https://test.api' },
+        { provide: API_BASE_URL, useValue: baseUrl },
       ],
     });
     service = TestBed.inject(TableService);
     httpMock = TestBed.inject(HttpTestingController);
-  });
+  }
 
   afterEach(() => {
     httpMock.verify();
+    TestBed.resetTestingModule();
   });
 
   it('should be created', () => {
+    configure();
     expect(service).toBeTruthy();
   });
 
   it('sends locationId when a location is set', () => {
+    configure();
     service
       .getAvailableTables$({ location: 'loc-1', date: 'Oct 17, 2026', time: '10:00', guests: 2 })
       .subscribe();
@@ -44,6 +47,7 @@ describe('TableService', () => {
   });
 
   it('omits locationId when no location is set', () => {
+    configure();
     service
       .getAvailableTables$({ location: null, date: 'Oct 17, 2026', time: '10:00', guests: 2 })
       .subscribe();
@@ -71,6 +75,7 @@ describe('TableService', () => {
     };
 
     it('emits an empty list when no tables are available', () => {
+      configure();
       let result: Table[] | undefined;
       service.getAvailableTablesWithTimeSlots$(filter).subscribe((value) => (result = value));
 
@@ -80,6 +85,7 @@ describe('TableService', () => {
     });
 
     it('attaches time slots to every table and keeps the API order', () => {
+      configure();
       let result: Table[] | undefined;
       service.getAvailableTablesWithTimeSlots$(filter).subscribe((value) => (result = value));
       flushTables(tables);
@@ -93,7 +99,8 @@ describe('TableService', () => {
       expect(result?.[1].timeRanges).toEqual([slot]);
     });
 
-    it('keeps a table with no slots when its time-slot request fails', () => {
+    it('uses demo time slots when a time-slot request fails', () => {
+      configure();
       let result: Table[] | undefined;
       service.getAvailableTablesWithTimeSlots$(filter).subscribe((value) => (result = value));
       flushTables(tables);
@@ -104,11 +111,12 @@ describe('TableService', () => {
       httpMock.expectOne((request) => request.url === slotsUrl('table-2')).flush([slot]);
 
       expect(result?.length).toBe(2);
-      expect(result?.[0].timeRanges).toEqual([]);
+      expect(result?.[0].timeRanges.length).toBeGreaterThan(0);
       expect(result?.[1].timeRanges).toEqual([slot]);
     });
 
     it('sends at most 6 time-slot requests at once', () => {
+      configure();
       const manyTables = Array.from({ length: 10 }, (_, position) => ({
         ...tables[0],
         id: `table-${position}`,
@@ -123,6 +131,32 @@ describe('TableService', () => {
       const secondBatch = httpMock.match((request) => request.url.endsWith('/available-time-slots'));
       expect(secondBatch.length).toBe(4);
       secondBatch.forEach((request) => request.flush([]));
+    });
+
+    it('uses mock tables and slots when table availability fails', () => {
+      configure();
+      spyOn(console, 'warn');
+      let result: Table[] | undefined;
+      service.getAvailableTablesWithTimeSlots$(filter).subscribe((value) => (result = value));
+
+      httpMock
+        .expectOne((request) => request.url === 'https://test.api/available-tables')
+        .flush({ error: 'Unavailable' }, { status: 503, statusText: 'Service Unavailable' });
+
+      expect(result?.length).toBe(9);
+      expect(result?.[0].timeRanges.length).toBeGreaterThan(0);
+    });
+
+    it('uses mock tables and slots when no backend URL is configured', () => {
+      configure('');
+      let result: Table[] | undefined;
+
+      service.getAvailableTablesWithTimeSlots$(filter).subscribe((value) => (result = value));
+
+      expect(result?.length).toBe(9);
+      expect(result?.[0].locationId).toBe('demo-location-1');
+      expect(result?.[0].timeRanges.length).toBeGreaterThan(0);
+      httpMock.expectNone('/available-tables');
     });
   });
 });

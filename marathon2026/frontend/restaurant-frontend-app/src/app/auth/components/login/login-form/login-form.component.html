@@ -1,6 +1,12 @@
 <form class="form" [formGroup]="loginForm" (ngSubmit)="onSubmit()">
     <div class="title">Sign In to Your Account</div>
 
+    @if (registrationComplete) {
+        <div class="banner-success" role="status">
+            Your account was created successfully. Sign in to continue.
+        </div>
+    }
+
     @if (isAccountLocked()) {
         <div class="banner-error">
             Your account is temporarily locked due to multiple failed login attemps. Please try again in 5 minutes.

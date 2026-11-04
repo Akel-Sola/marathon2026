@@ -1,3 +1,199 @@
-.group-order { max-width: 860px; margin: 2rem auto; padding: 0 1rem; color: #23352a; }
-.group-order__header, .participant, .summary__item, .summary__total { display:flex; align-items:center; justify-content:space-between; gap:1rem; }
-.status { color:#247b45; font-weight:600; }.participants, .summary { margin-top:1.5rem; padding:1.25rem; border:1px solid #dce8df; border-radius:14px; background:#fff; }.participant { padding:1rem 0; border-bottom:1px solid #edf2ee; }.participant:last-child { border-bottom:0; }.participant small { display:block; color:#247b45; }.summary__item { padding:.5rem 0; }.summary__total { border-top:1px solid #dce8df; margin-top:.75rem; padding-top:1rem; font-size:1.1rem; }.warning { background:#fff5d9; padding:.75rem; border-radius:8px; }.message { padding:3rem 1rem; text-align:center; }.error { color:#a22626; }button { border:0; border-radius:8px; padding:.7rem 1rem; background:#247b45; color:#fff; cursor:pointer; }button:disabled { opacity:.5; cursor:not-allowed; }.dialog { position:fixed; inset:0; display:grid; place-items:center; background:#0006; }.dialog__body { background:#fff; padding:2rem; border-radius:14px; }.dialog__body button + button { margin-left:.5rem; background:#68756d; }
+.group-order {
+  max-width: 860px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+  color: #23352a;
+}
+
+.group-order__header,
+.participant,
+.summary__item,
+.summary__total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.group-order__header {
+  flex-wrap: wrap;
+}
+
+.status {
+  color: #247b45;
+  font-weight: 600;
+}
+
+.participants,
+.summary {
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  border: 1px solid #dce8df;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.participant {
+  display: block;
+  padding: 1rem 0;
+  border-bottom: 1px solid #edf2ee;
+}
+
+.participant:last-child {
+  border-bottom: 0;
+}
+
+.participant__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.participant small {
+  display: block;
+  color: #247b45;
+}
+
+.participant__items {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.75rem 0 0;
+  padding: 0 0 0 1rem;
+  color: #52635a;
+}
+
+.participant__items li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.participant__items li span {
+  overflow-wrap: anywhere;
+}
+
+.participant__empty {
+  margin: 0.75rem 0 0;
+  color: #68756d;
+}
+
+.summary__item {
+  padding: 0.5rem 0;
+}
+
+.summary__item > span {
+  overflow-wrap: anywhere;
+}
+
+.summary__total {
+  margin-top: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid #dce8df;
+  font-size: 1.1rem;
+}
+
+.warning {
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: #fff5d9;
+}
+
+.message {
+  padding: 3rem 1rem;
+  text-align: center;
+}
+
+.error {
+  color: #a22626;
+}
+
+button {
+  padding: 0.7rem 1rem;
+  border: 0;
+  border-radius: 8px;
+  background: #247b45;
+  color: #fff;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dialog {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: #0006;
+}
+
+.dialog__body {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: min(100%, 28rem);
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  padding: 2rem;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.dialog__body button {
+  align-self: flex-end;
+}
+
+.dialog__body button + button {
+  margin-top: -0.5rem;
+  background: #68756d;
+}
+
+@media (max-width: 480px) {
+  .group-order__header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .participants,
+  .summary {
+    padding: 1rem;
+  }
+
+  .participant {
+    align-items: initial;
+  }
+
+  .participant__header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .participant__header > b {
+    margin-left: auto;
+    white-space: nowrap;
+  }
+
+  .participant__items li {
+    align-items: flex-start;
+  }
+
+  .participant__items li b {
+    white-space: nowrap;
+  }
+
+  .summary__item,
+  .summary__total {
+    align-items: flex-start;
+  }
+
+  .dialog__body {
+    padding: 1.25rem;
+  }
+}

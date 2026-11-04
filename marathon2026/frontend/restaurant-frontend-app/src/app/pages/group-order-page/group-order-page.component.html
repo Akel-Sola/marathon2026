@@ -5,7 +5,30 @@
   @else if (participants().length === 0) { <p class="message">Participants haven't added any dishes yet</p> }
   @else {
     <section class="participants"><h2>Participants</h2>
-      @for (participant of participants(); track participant.id) { <article class="participant" [class.owner]="participant.id === ownerSessionId()"><div><strong>{{ participant.name }}</strong>@if (participant.id === ownerSessionId()) { <small>My Pre-Order</small> }</div><span>{{ participant.isSubmitted ? 'Submitted' : 'Not submitted' }}</span><b>{{ participant.total | currency:'₴' }}</b></article> }
+      @for (participant of participants(); track participant.id) {
+        <article class="participant" [class.owner]="participant.id === ownerSessionId()">
+          <div class="participant__header">
+            <div>
+              <strong>{{ participant.name }}</strong>
+              @if (participant.id === ownerSessionId()) { <small>My Pre-Order</small> }
+            </div>
+            <span>{{ participant.isSubmitted ? 'Submitted' : 'Not submitted' }}</span>
+            <b>{{ participant.total | currency:'₴' }}</b>
+          </div>
+          @if (participant.items.length > 0) {
+            <ul class="participant__items">
+              @for (item of participant.items; track item.dish.id) {
+                <li>
+                  <span>{{ item.dish.name }} × {{ item.quantity }}</span>
+                  <b>{{ item.dish.price * item.quantity | currency:'₴' }}</b>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="participant__empty">No dishes added yet.</p>
+          }
+        </article>
+      }
     </section>
     <section class="summary"><h2>Consolidated pre-order</h2>@for (item of consolidated(); track item.name) { <div class="summary__item"><span>{{ item.name }} × {{ item.quantity }}</span><b>{{ item.price * item.quantity | currency:'₴' }}</b></div> }<div class="summary__total"><span>Grand Total</span><b>{{ total() | currency:'₴' }}</b></div>@if (pendingCount() > 0) { <p class="warning">{{ pendingCount() }} participants haven't submitted their cart yet — their dishes won't be included in the order.</p> }<button type="button" (click)="submit()" [disabled]="status() !== 'Open' || submitting() || consolidated().length === 0">Submit Pre-Order</button></section>
   }

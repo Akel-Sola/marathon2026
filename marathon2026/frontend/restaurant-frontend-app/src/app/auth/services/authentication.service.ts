@@ -77,14 +77,38 @@ export class AuthenticationService {
         return { success: true };
       }
 
-      console.warn('Registration failed on the backend; creating a local demo account.', {
-        status: response.status,
-      });
+      return {
+        success: false,
+        message: await this.getRegistrationErrorMessage(response),
+      };
     } catch (error) {
-      console.warn('Registration backend is unavailable; creating a local demo account.', error);
+      console.error('Registration backend is unavailable.', error);
+      return {
+        success: false,
+        message: 'Could not reach the registration service. Please try again later.',
+      };
+    }
+  }
+
+  private async getRegistrationErrorMessage(response: Response): Promise<string> {
+    const body = await response.text();
+    if (!body) {
+      return `Registration failed (${response.status}). Please try again.`;
     }
 
-    return this.registerDemo(firstName, lastName, email);
+    try {
+      const parsed: unknown = JSON.parse(body);
+      if (typeof parsed === 'object' && parsed !== null && 'error' in parsed) {
+        const message = (parsed as { error?: unknown }).error;
+        if (typeof message === 'string' && message.trim()) {
+          return message;
+        }
+      }
+    } catch {
+      return body;
+    }
+
+    return body;
   }
 
   registerDemo(firstName: string, lastName: string, email: string): LoginResult {

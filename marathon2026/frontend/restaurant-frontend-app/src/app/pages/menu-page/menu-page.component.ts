@@ -42,6 +42,8 @@ export class MenuPageComponent implements OnInit {
 
   selectedCategory: DishType | null = null; // initially show all
   selectedSort: DishSort = DishSort.PopularityDescending;
+  private deepLinkedDishId: string | null = null;
+  private hasLoadedDishes = false;
 
   private readonly dishesService = inject(DishesService);
   private readonly route = inject(ActivatedRoute);
@@ -64,13 +66,22 @@ export class MenuPageComponent implements OnInit {
 
       const category = params['category'] as DishType;
       const sort = params['sort'] as DishSort;
+      this.deepLinkedDishId = params['dish'] || null;
 
-      this.selectedCategory =
+      const nextCategory =
         category && Object.values(DishType).includes(category) ? category : null;
-      this.selectedSort =
+      const nextSort =
         sort && Object.values(DishSort).includes(sort) ? sort : DishSort.PopularityDescending;
+      const filtersChanged =
+        nextCategory !== this.selectedCategory || nextSort !== this.selectedSort;
+      this.selectedCategory = nextCategory;
+      this.selectedSort = nextSort;
 
-      this.loadDishes();
+      if (!this.hasLoadedDishes || filtersChanged) {
+        this.loadDishes();
+      } else {
+        this.syncDeepLinkedDish();
+      }
     });
   }
 
@@ -96,6 +107,8 @@ export class MenuPageComponent implements OnInit {
       }));
 
       this.filteredDishes = this.dishes;
+      this.hasLoadedDishes = true;
+      this.syncDeepLinkedDish();
     });
   }
 
@@ -136,6 +149,20 @@ export class MenuPageComponent implements OnInit {
 
   closeModal() {
     this.selectedDish = null;
+    if (this.route.snapshot.queryParamMap.has('dish')) {
+      this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { dish: null },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
+    }
+  }
+
+  private syncDeepLinkedDish(): void {
+    this.selectedDish = this.deepLinkedDishId
+      ? (this.dishes.find((dish) => dish.id === this.deepLinkedDishId) ?? null)
+      : null;
   }
 
   addDishToCart(dish: DishListResponse): void {

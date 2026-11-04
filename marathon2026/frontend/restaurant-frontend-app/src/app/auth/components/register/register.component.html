@@ -13,7 +13,7 @@
     }
 
     @if (unsuccessfulRegistration) {
-      <div class="response-error-message">
+      <div class="response-error-message" role="alert">
         {{
           errorMessage ??
             'There was an error during the registration process. Please try again later.'
@@ -36,6 +36,9 @@
           @if (firstName?.invalid && (firstName?.touched || firstName?.dirty)) {
             @if (firstName?.errors?.['required']) {
               <div class="error-message">First name is required.</div>
+            }
+            @if (firstName?.errors?.['minlength']) {
+              <div class="error-message">First name must be at least 2 characters.</div>
             }
             @if (firstName?.errors?.['maxlength']) {
               <div class="error-message">First name must be up to 50 characters.</div>
@@ -65,10 +68,13 @@
         <div class="hint-or-error">
           @if (lastName?.invalid && (lastName?.touched || lastName?.dirty)) {
             @if (lastName?.errors?.['required']) {
-              <div class="error-message">First name is required.</div>
+              <div class="error-message">Last name is required.</div>
+            }
+            @if (lastName?.errors?.['minlength']) {
+              <div class="error-message">Last name must be at least 2 characters.</div>
             }
             @if (lastName?.errors?.['maxlength']) {
-              <div class="error-message">First name must be up to 50 characters.</div>
+              <div class="error-message">Last name must be up to 50 characters.</div>
             }
             @if (lastName?.errors?.['pattern']) {
               <div class="error-message">
@@ -97,6 +103,9 @@
           @if (email?.errors?.['required']) {
             <div class="error-message">Email is required.</div>
           }
+          @if (email?.errors?.['maxlength']) {
+            <div class="error-message">Email must be up to 254 characters.</div>
+          }
           @if (email?.errors?.['pattern']) {
             <div class="error-message">
               Invalid email address. Please ensure it follows the format: username&#64;domain.com
@@ -121,9 +130,9 @@
     <app-custom-button
       type="submit"
       class="btn-submit"
-      [disabled]="registerForm.invalid || registrationSuccessful"
+      [disabled]="registerForm.invalid || registrationSuccessful || isSubmitting"
     >
-      Create an Account
+      {{ isSubmitting ? 'Creating account...' : 'Create an Account' }}
     </app-custom-button>
     <div class="login-link-wrapper">
       Already have an account?

@@ -41,6 +41,7 @@ export class RegisterComponent implements OnInit {
 
   unsuccessfulRegistration = false;
   registrationSuccessful = false;
+  isSubmitting = false;
   errorMessage: string | null = null;
 
   ngOnInit(): void {
@@ -52,16 +53,27 @@ export class RegisterComponent implements OnInit {
       {
         firstName: [
           '',
-          [Validators.required, Validators.maxLength(50), Validators.pattern(/^[A-Za-z'-]+$/)],
+          [
+            Validators.required,
+            Validators.minLength(2),
+            Validators.maxLength(50),
+            Validators.pattern(/^[A-Za-z'-]+$/),
+          ],
         ],
         lastName: [
           '',
-          [Validators.required, Validators.maxLength(50), Validators.pattern(/^[A-Za-z'-]+$/)],
+          [
+            Validators.required,
+            Validators.minLength(2),
+            Validators.maxLength(50),
+            Validators.pattern(/^[A-Za-z'-]+$/),
+          ],
         ],
         email: [
           '',
           [
             Validators.required,
+            Validators.maxLength(254),
             Validators.pattern(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/),
           ],
         ],
@@ -93,9 +105,18 @@ export class RegisterComponent implements OnInit {
   }
 
   async onSubmit() {
-    if (this.registerForm.valid) {
-      const registerData = this.registerForm.value;
-      const isDemoMode = this.route.snapshot.queryParamMap.has('demo');
+    if (!this.registerForm.valid || this.isSubmitting) {
+      this.registerForm.markAllAsTouched();
+      return;
+    }
+
+    const registerData = this.registerForm.value;
+    const isDemoMode = this.route.snapshot.queryParamMap.has('demo');
+    this.isSubmitting = true;
+    this.unsuccessfulRegistration = false;
+    this.errorMessage = null;
+
+    try {
       const result = isDemoMode
         ? this.authenticationService.registerDemo(
             registerData.firstName,
@@ -115,11 +136,15 @@ export class RegisterComponent implements OnInit {
         if (isDemoMode || result.isDemo) {
           this.registrationSuccessful = true;
         } else {
-          this.router.navigate(['/login']);
+          await this.router.navigate(['/login'], { queryParams: { registered: true } });
         }
       }
-    } else {
-      console.error('Form is invalid');
+    } catch (error) {
+      console.error('Registration failed unexpectedly.', error);
+      this.unsuccessfulRegistration = true;
+      this.errorMessage = 'Registration failed. Please try again later.';
+    } finally {
+      this.isSubmitting = false;
     }
   }
 }

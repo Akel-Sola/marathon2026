@@ -53,6 +53,16 @@ describe('LocationsService', () => {
     expect(result).toEqual(backendLocations);
   });
 
+  it('uses mock locations when the backend responds with an empty list', () => {
+    configure('https://test.api');
+    let result: typeof MOCK_LOCATIONS = [];
+
+    service.getLocations().subscribe((locations) => (result = locations));
+    httpMock.expectOne('https://test.api/locations').flush([]);
+
+    expect(result).toEqual(MOCK_LOCATIONS);
+  });
+
   it('falls back to mocks for HTTP and network errors', () => {
     configure('https://test.api');
     spyOn(console, 'warn');

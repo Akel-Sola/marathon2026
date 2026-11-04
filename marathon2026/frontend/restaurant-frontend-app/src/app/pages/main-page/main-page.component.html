@@ -23,8 +23,8 @@
     <h2 class="section-heading">Most Popular Dishes</h2>
 
     <div class="dish-cards">
-      @for (dish of dishes; track dish) {
-        <a routerLink="/dish/{{ dish.id }}" routerLinkActive="router-link-active" class="dish-card">
+      @for (dish of dishes; track dish.id) {
+        <a [routerLink]="['/menu']" [queryParams]="{ dish: dish.id }" class="dish-card">
           <img [src]="dish.imageUrl" alt="{{ dish.name }}" class="dish-image" />
           <div class="dish-info">
             <div class="dish-name">{{ dish.name }}</div>
@@ -43,7 +43,7 @@
     <h2 class="section-heading">Locations</h2>
 
     <div class="location-cards">
-      @for (location of locations; track location) {
+      @for (location of locations; track location.id) {
         <app-location-card [location]="location" maxWidth="488px"></app-location-card>
       }
     </div>
