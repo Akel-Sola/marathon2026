@@ -2,6 +2,8 @@
 
 This repo uses three deployment tracks:
 
+For local development, use LocalStack instead of a real AWS account. Start it with `docker compose -f localstack-compose.yml up -d` and set `AWS_ENDPOINT_URL=http://localhost:4566`, `AWS_ACCESS_KEY_ID=test`, and `AWS_SECRET_ACCESS_KEY=test`.
+
 - Terraform for shared AWS infrastructure under `infra/terraform`
 - AWS Syndicate for the backend application under `backend/restaurant-backend-app`
 - Angular build artifacts synced to the frontend S3 bucket under `frontend/restaurant-frontend-app`

@@ -1,0 +1,15 @@
+services:
+  localstack:
+    image: localstack/localstack:4.8
+    container_name: marathon2026-localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=dynamodb,s3,sqs,cognito-idp,apigateway,lambda,iam,cloudwatch,events
+      - AWS_DEFAULT_REGION=us-east-1
+      - PERSISTENCE=1
+    volumes:
+      - localstack-data:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+volumes:
+  localstack-data:

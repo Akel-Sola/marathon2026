@@ -12,6 +12,7 @@ import { MenuPageComponent } from './pages/menu-page/menu-page.component';
 import { WaiterDashboardComponent } from './pages/waiter-dashboard/waiter-dashboard.component';
 import { ReportingDashboardComponent } from './pages/reporting-dashboard/reporting-dashboard.component';
 import { AdminGuard } from './auth/guards/admin.guard';
+import { GroupOrderPageComponent } from './pages/group-order-page/group-order-page.component';
 
 export const routes: Routes = [
   {
@@ -33,6 +34,12 @@ export const routes: Routes = [
   {
     path: 'reservations',
     component: ReservationDashboardComponent,
+    canActivate: [AuthGuard],
+    data: { authorized: true },
+  },
+  {
+    path: 'reservations/:reservationId/group-order',
+    component: GroupOrderPageComponent,
     canActivate: [AuthGuard],
     data: { authorized: true },
   },

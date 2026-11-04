@@ -1,0 +1,13 @@
+<main class="group-order">
+  <header class="group-order__header"><h1>Group pre-order</h1><span class="status">{{ status() === 'Submitted' ? 'Sent to Restaurant' : 'Collecting pre-orders' }}</span></header>
+  @if (loading()) { <p class="message">Loading participants…</p> }
+  @else if (error()) { <section class="message error"><p>{{ error() }}</p><button type="button" (click)="load()">Try again</button></section> }
+  @else if (participants().length === 0) { <p class="message">Participants haven't added any dishes yet</p> }
+  @else {
+    <section class="participants"><h2>Participants</h2>
+      @for (participant of participants(); track participant.id) { <article class="participant" [class.owner]="participant.id === ownerSessionId()"><div><strong>{{ participant.name }}</strong>@if (participant.id === ownerSessionId()) { <small>My Pre-Order</small> }</div><span>{{ participant.isSubmitted ? 'Submitted' : 'Not submitted' }}</span><b>{{ participant.total | currency:'₴' }}</b></article> }
+    </section>
+    <section class="summary"><h2>Consolidated pre-order</h2>@for (item of consolidated(); track item.name) { <div class="summary__item"><span>{{ item.name }} × {{ item.quantity }}</span><b>{{ item.price * item.quantity | currency:'₴' }}</b></div> }<div class="summary__total"><span>Grand Total</span><b>{{ total() | currency:'₴' }}</b></div>@if (pendingCount() > 0) { <p class="warning">{{ pendingCount() }} participants haven't submitted their cart yet — their dishes won't be included in the order.</p> }<button type="button" (click)="submit()" [disabled]="status() !== 'Open' || submitting() || consolidated().length === 0">Submit Pre-Order</button></section>
+  }
+  @if (showConfirm()) { <div class="dialog"><div class="dialog__body"><h2>Submit pre-order?</h2><p>This will send the consolidated order to the restaurant.</p><button type="button" (click)="confirmSubmit()">Submit</button><button type="button" (click)="showConfirm.set(false)">Cancel</button></div></div> }
+</main>

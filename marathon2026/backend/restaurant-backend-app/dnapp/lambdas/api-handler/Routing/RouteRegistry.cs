@@ -1,9 +1,11 @@
 using Amazon;
+using Amazon.Runtime;
 using Amazon.CognitoIdentityProvider;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DataModel;
 using Amazon.S3;
 using Amazon.SQS;
+using System;
 using APIHandler.Constants;
 using APIHandler.Handlers;
 using APIHandler.Handlers.Dishes;
@@ -65,22 +67,22 @@ public static class RouteRegistry
         var region = RegionEndpoint.GetBySystemName(ResourceNames.Region);
 
         // 1. AWS Clients
-        var dynamoDbClient = new AmazonDynamoDBClient(region);
+        var dynamoDbClient = new AmazonDynamoDBClient(CreateConfig<AmazonDynamoDBConfig>(region));
         services.AddSingleton(dynamoDbClient);
         services.AddSingleton<IAmazonDynamoDB>(dynamoDbClient);
         services.AddSingleton<IDynamoDBContext>(sp => new DynamoDBContextBuilder()
             .WithDynamoDBClient(() => sp.GetRequiredService<IAmazonDynamoDB>())
             .Build());
 
-        var cognitoClient = new AmazonCognitoIdentityProviderClient(region);
+        var cognitoClient = new AmazonCognitoIdentityProviderClient(CreateConfig<AmazonCognitoIdentityProviderConfig>(region));
         services.AddSingleton(cognitoClient);
         services.AddSingleton<IAmazonCognitoIdentityProvider>(cognitoClient);
 
-        var sqsClient = new AmazonSQSClient(region);
+        var sqsClient = new AmazonSQSClient(CreateConfig<AmazonSQSConfig>(region));
         services.AddSingleton(sqsClient);
         services.AddSingleton<IAmazonSQS>(sqsClient);
 
-        var s3Client = new AmazonS3Client(region);
+        var s3Client = new AmazonS3Client(CreateConfig<AmazonS3Config>(region));
         services.AddSingleton(s3Client);
         services.AddSingleton<IAmazonS3>(s3Client);
 
@@ -116,6 +118,20 @@ public static class RouteRegistry
         services.AddSingleton<IReportService, ReportService>();
 
         var provider = services.BuildServiceProvider();
+
+        static TConfig CreateConfig<TConfig>(RegionEndpoint region) where TConfig : ClientConfig, new()
+        {
+            var config = new TConfig { RegionEndpoint = region };
+            var endpoint = Environment.GetEnvironmentVariable("AWS_ENDPOINT_URL");
+            if (!string.IsNullOrWhiteSpace(endpoint))
+            {
+                config.ServiceURL = endpoint;
+                config.AuthenticationRegion = region.SystemName;
+                config.UseHttp = endpoint.StartsWith("http://", StringComparison.OrdinalIgnoreCase);
+                config.MaxErrorRetry = 0;
+            }
+            return config;
+        }
 
         List<RouteHandler> GetAuthAndUserRoutes() => [
             new RouteHandler(new Route(HttpMethods.POST, "/register"), ActivatorUtilities.CreateInstance<RegistrationHandler>(provider)),
@@ -192,8 +208,11 @@ public static class RouteRegistry
             new RouteHandler(new Route(HttpMethods.POST, "/guest/sessions/{guestSessionId}/submit"), ActivatorUtilities.CreateInstance<SubmitGuestCartHandler>(provider)),
             new RouteHandler(new Route(HttpMethods.GET, "/guest/sessions/{guestSessionId}/menu"), ActivatorUtilities.CreateInstance<GetGuestSessionMenuHandler>(provider)),
             new RouteHandler(new Route(HttpMethods.GET, "/guest/groups/{groupReservationId}/status"), ActivatorUtilities.CreateInstance<GetGroupReservationStatusHandler>(provider)),
+            new RouteHandler(new Route(HttpMethods.GET, "/guest/groups/{groupReservationId}/sessions"), ActivatorUtilities.CreateInstance<GetGroupReservationSessionsHandler>(provider)),
             new RouteHandler(new Route(HttpMethods.GET, "/guest/invites/{token}"), ActivatorUtilities.CreateInstance<GetGroupReservationHandler>(provider)),
             new RouteHandler(new Route(HttpMethods.GET, "/reservations/{reservationId}/invite-token"), ActivatorUtilities.CreateInstance<GetInviteTokenHandler>(provider)),
+            new RouteHandler(new Route(HttpMethods.GET, "/reservations/{reservationId}/guest-session-id"), ActivatorUtilities.CreateInstance<GetOwnerGuestSessionIdHandler>(provider)),
+            new RouteHandler(new Route(HttpMethods.POST, "/group-reservations/{groupReservationId}/submit"), ActivatorUtilities.CreateInstance<SubmitGroupPreOrderHandler>(provider)),
             new RouteHandler(new Route(HttpMethods.DELETE, "/guest/groups/{groupReservationId}/sessions/{guestSessionId}"), ActivatorUtilities.CreateInstance<DeleteGuestSessionHandler>(provider))
         ];
         List<RouteHandler> GetAuxiliaryRoutes() => [

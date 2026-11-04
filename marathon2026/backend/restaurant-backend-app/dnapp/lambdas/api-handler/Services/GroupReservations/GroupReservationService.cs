@@ -91,7 +91,16 @@ public class GroupReservationService(
         if (group is not null)
             return;
 
-        await CreateGroupReservationAsync(reservationId);
+        var created = await CreateGroupReservationAsync(reservationId);
+        await guestSessionRepository.SaveAsync(new GuestSession
+        {
+            Id = Guid.NewGuid().ToString(),
+            GroupReservationId = created.GroupReservationId,
+            GuestName = "Owner",
+            Dishes = [],
+            IsOwnerSession = true,
+            OwnerUserId = userId
+        });
     }
 
     public async Task UpdateGroupReservationStatusAsync(string groupReservationId, GroupReservationStatus status)
