@@ -112,7 +112,7 @@ export class RegisterComponent implements OnInit {
       this.unsuccessfulRegistration = !result.success;
       this.errorMessage = result.message || null;
       if (result.success) {
-        if (isDemoMode) {
+        if (isDemoMode || result.isDemo) {
           this.registrationSuccessful = true;
         } else {
           this.router.navigate(['/login']);

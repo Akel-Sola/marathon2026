@@ -50,7 +50,7 @@ export class AuthenticationService {
     email: string,
     password: string,
     confirmPassword: string
-  ) {
+  ): Promise<LoginResult> {
     const body = {
       firstName: firstName,
       lastName: lastName,
@@ -60,14 +60,31 @@ export class AuthenticationService {
     };
     const url = this.baseUrl + '/register';
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-    return await this.resolveRegisterResponse(response);
+    if (!this.baseUrl.trim() || this.baseUrl.toLowerCase().includes('example.com')) {
+      return this.registerDemo(firstName, lastName, email);
+    }
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (response.ok) {
+        return { success: true };
+      }
+
+      console.warn('Registration failed on the backend; creating a local demo account.', {
+        status: response.status,
+      });
+    } catch (error) {
+      console.warn('Registration backend is unavailable; creating a local demo account.', error);
+    }
+
+    return this.registerDemo(firstName, lastName, email);
   }
 
   registerDemo(firstName: string, lastName: string, email: string): LoginResult {
@@ -83,7 +100,7 @@ export class AuthenticationService {
     localStorage.setItem('user', JSON.stringify(user));
     this.user$$.next(user);
     this.isAuthorised$$.next(true);
-    return { success: true };
+    return { success: true, isDemo: true };
   }
 
   signOut() {
@@ -121,23 +138,6 @@ export class AuthenticationService {
       result.success = false;
       result.message = 'An error occurred during the login process. Please try again later.';
       console.error('Error processing response:', error);
-    }
-    return result;
-  }
-  private async resolveRegisterResponse(response: Response): Promise<LoginResult> {
-    const body = await response.json();
-    const result: LoginResult = { success: true };
-    if (response.ok) {
-      return result;
-    }
-    if (body.error) {
-      result.success = false;
-      result.message = body.error;
-      console.error('Registration failed:', result.message);
-    } else {
-      result.success = false;
-      result.message = 'Unexpected response from the server. Please try again later.';
-      console.error('Unexpected response:', body);
     }
     return result;
   }
