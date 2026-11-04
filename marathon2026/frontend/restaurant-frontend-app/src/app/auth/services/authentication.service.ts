@@ -69,6 +69,23 @@ export class AuthenticationService {
     });
     return await this.resolveRegisterResponse(response);
   }
+
+  registerDemo(firstName: string, lastName: string, email: string): LoginResult {
+    const user: UserModel = {
+      id: 'demo-user',
+      firstName,
+      lastName,
+      email,
+      role: 'Customer',
+    };
+
+    localStorage.setItem('auth', JSON.stringify({ demo: true }));
+    localStorage.setItem('user', JSON.stringify(user));
+    this.user$$.next(user);
+    this.isAuthorised$$.next(true);
+    return { success: true };
+  }
+
   signOut() {
     localStorage.removeItem('auth');
     localStorage.removeItem('user');

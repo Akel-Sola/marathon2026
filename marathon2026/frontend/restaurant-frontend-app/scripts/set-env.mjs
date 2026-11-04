@@ -12,27 +12,9 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
 const OUT_FILE = resolve('src/environments/environment.production.ts');
-const backendUrl = process.env.BACKEND_URL?.trim();
+const backendUrl = process.env.BACKEND_URL?.trim() ?? '';
 
-if (!backendUrl) {
-  console.error(
-    [
-      '',
-      'BACKEND_URL is not set — refusing to build a production bundle.',
-      '',
-      'Without it the bundle would ship the literal BACKEND_URL_PLACEHOLDER',
-      'and every API call would fail at runtime.',
-      '',
-      'Examples:',
-      '  BACKEND_URL=https://xxxx.execute-api.eu-west-1.amazonaws.com/develop npm run build',
-      '  npm start                     # local dev, no BACKEND_URL needed',
-      '',
-    ].join('\n')
-  );
-  process.exit(1);
-}
-
-if (!/^https?:\/\//.test(backendUrl)) {
+if (backendUrl && !/^https?:\/\//.test(backendUrl)) {
   console.error(`BACKEND_URL must start with http:// or https:// (got: ${backendUrl})`);
   process.exit(1);
 }
@@ -46,4 +28,4 @@ export const environment = {
 
 mkdirSync(dirname(OUT_FILE), { recursive: true });
 writeFileSync(OUT_FILE, contents, 'utf8');
-console.log(`environment.production.ts generated with backendUrl = ${backendUrl}`);
+console.log(`environment.production.ts generated with backendUrl = ${backendUrl || '(demo mode)'}`);

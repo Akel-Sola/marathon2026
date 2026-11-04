@@ -6,13 +6,36 @@ describe('AuthenticationService', () => {
   let service: AuthenticationService;
 
   beforeEach(() => {
+    localStorage.removeItem('auth');
+    localStorage.removeItem('user');
     TestBed.configureTestingModule({
       providers: [{ provide: API_BASE_URL, useValue: 'https://test.api' }],
     });
     service = TestBed.inject(AuthenticationService);
   });
 
+  afterEach(() => {
+    localStorage.removeItem('auth');
+    localStorage.removeItem('user');
+  });
+
   it('should be created', () => {
     expect(service).toBeTruthy();
+  });
+
+  it('registers a demo user locally without a backend token', () => {
+    const result = service.registerDemo('Demo', 'User', 'demo@example.com');
+
+    expect(result.success).toBeTrue();
+    expect(JSON.parse(localStorage.getItem('auth')!)).toEqual({ demo: true });
+    expect(JSON.parse(localStorage.getItem('user')!)).toEqual({
+      id: 'demo-user',
+      firstName: 'Demo',
+      lastName: 'User',
+      email: 'demo@example.com',
+      role: 'Customer',
+    });
+    expect(service.getUser()?.email).toBe('demo@example.com');
+    expect(service.getTokens()).toBeNull();
   });
 });

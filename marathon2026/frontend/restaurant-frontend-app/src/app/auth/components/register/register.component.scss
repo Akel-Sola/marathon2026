@@ -69,6 +69,24 @@
   font-weight: 300;
 }
 
+.response-success-message {
+  font-size: 0.875rem;
+  line-height: 1.5rem;
+  color: color.$green-600;
+  background-color: color.$green-100;
+  margin-bottom: 1rem;
+  border-radius: 8px;
+  padding: 1rem;
+  font-weight: 300;
+
+  a {
+    display: block;
+    color: inherit;
+    font-weight: 500;
+    text-decoration: underline;
+  }
+}
+
 .name {
   display: flex;
   justify-content: space-between;

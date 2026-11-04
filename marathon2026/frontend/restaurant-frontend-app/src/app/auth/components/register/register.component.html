@@ -5,6 +5,13 @@
       <div class="title-create-account">Create an account</div>
     </div>
 
+    @if (registrationSuccessful) {
+      <div class="response-success-message" role="status">
+        Demo account created. You are now signed in.
+        <a routerLink="/menu">Open the menu</a>
+      </div>
+    }
+
     @if (unsuccessfulRegistration) {
       <div class="response-error-message">
         {{
@@ -111,7 +118,11 @@
 
     <app-confirm-password class="password" [control]="confirmPassword"> </app-confirm-password>
 
-    <app-custom-button type="submit" class="btn-submit" [disabled]="registerForm.invalid">
+    <app-custom-button
+      type="submit"
+      class="btn-submit"
+      [disabled]="registerForm.invalid || registrationSuccessful"
+    >
       Create an Account
     </app-custom-button>
     <div class="login-link-wrapper">

@@ -10,7 +10,7 @@ import {
 } from '@angular/forms';
 import { FormValidatorsService } from '@app/auth/services/form-validators-service.service';
 import { CustomButtonComponent } from '@app/shared/custom-components/custom-button/custom-button.component';
-import { Router, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { AuthenticationService } from '@app/auth/services/authentication.service';
 import { PasswordWithRulesComponent } from '@app/shared/custom-components/password-with-rules/password-with-rules.component';
 import { ConfirmPasswordComponent } from '@app/shared/custom-components/confirm-password/confirm-password.component';
@@ -36,9 +36,11 @@ export class RegisterComponent implements OnInit {
   private formBuilder = inject(FormBuilder);
   private formValidatorsService = inject(FormValidatorsService);
   private authenticationService = inject(AuthenticationService);
+  private route = inject(ActivatedRoute);
   private router = inject(Router);
 
   unsuccessfulRegistration = false;
+  registrationSuccessful = false;
   errorMessage: string | null = null;
 
   ngOnInit(): void {
@@ -93,17 +95,28 @@ export class RegisterComponent implements OnInit {
   async onSubmit() {
     if (this.registerForm.valid) {
       const registerData = this.registerForm.value;
-      const result = await this.authenticationService.register(
-        registerData.firstName,
-        registerData.lastName,
-        registerData.email,
-        registerData.password,
-        registerData.confirmPassword
-      );
+      const isDemoMode = this.route.snapshot.queryParamMap.has('demo');
+      const result = isDemoMode
+        ? this.authenticationService.registerDemo(
+            registerData.firstName,
+            registerData.lastName,
+            registerData.email
+          )
+        : await this.authenticationService.register(
+            registerData.firstName,
+            registerData.lastName,
+            registerData.email,
+            registerData.password,
+            registerData.confirmPassword
+          );
       this.unsuccessfulRegistration = !result.success;
       this.errorMessage = result.message || null;
       if (result.success) {
-        this.router.navigate(['/login']);
+        if (isDemoMode) {
+          this.registrationSuccessful = true;
+        } else {
+          this.router.navigate(['/login']);
+        }
       }
     } else {
       console.error('Form is invalid');
