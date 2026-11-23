@@ -5,6 +5,7 @@
   @else if (participants().length === 0) { <p class="message">Participants haven't added any dishes yet</p> }
   @else {
     <section class="participants"><h2>Participants</h2>
+      @if (actionError()) { <p class="error" role="alert">{{ actionError() }}</p> }
       @for (participant of participants(); track participant.id) {
         <article class="participant" [class.owner]="participant.id === ownerSessionId()">
           <div class="participant__header">
@@ -14,6 +15,17 @@
             </div>
             <span>{{ participant.isSubmitted ? 'Submitted' : 'Not submitted' }}</span>
             <b>{{ participant.total | currency:'₴' }}</b>
+            @if (participant.type === 'Guest' && status() === 'Open') {
+              <button
+                type="button"
+                class="participant__remove"
+                [disabled]="!!removingSessionId()"
+                (click)="removeSession(participant.id)"
+                [attr.aria-label]="'Remove ' + participant.name"
+              >
+                {{ removingSessionId() === participant.id ? 'Removing…' : 'Remove' }}
+              </button>
+            }
           </div>
           @if (participant.items.length > 0) {
             <ul class="participant__items">

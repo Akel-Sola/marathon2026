@@ -24,6 +24,8 @@ export class GroupOrderPageComponent implements OnInit {
   readonly status = signal<'Open' | 'Submitted' | 'Closed'>('Open');
   readonly loading = signal(true);
   readonly submitting = signal(false);
+  readonly removingSessionId = signal('');
+  readonly actionError = signal('');
   readonly error = signal('');
   readonly showConfirm = signal(false);
   readonly submittedParticipants = computed(() => this.participants().filter(p => p.isSubmitted));
@@ -62,6 +64,24 @@ export class GroupOrderPageComponent implements OnInit {
   submit(): void {
     if (this.submitting() || this.status() !== 'Open' || this.consolidated().length === 0) return;
     this.showConfirm.set(true);
+  }
+
+  removeSession(sessionId: string): void {
+    const groupId = this.groupId();
+    if (!groupId || this.status() !== 'Open' || this.removingSessionId()) return;
+
+    this.removingSessionId.set(sessionId);
+    this.actionError.set('');
+    this.service.removeSession$(groupId, sessionId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (snapshot) => {
+        this.participants.set(snapshot.participants);
+        this.removingSessionId.set('');
+      },
+      error: () => {
+        this.removingSessionId.set('');
+        this.actionError.set('Unable to remove this participant. Try again.');
+      },
+    });
   }
 
   confirmSubmit(): void {

@@ -8,6 +8,7 @@ using APIHandler.Repositories.Auth;
 using APIHandler.Repositories.Dishes;
 using APIHandler.Repositories.GroupReservations;
 using APIHandler.Repositories.GuestSessions;
+using APIHandler.Repositories.Orders;
 using APIHandler.Repositories.Reservations;
 using APIHandler.Repositories.Tables;
 using APIHandler.Services.GuestSessions;
@@ -27,6 +28,7 @@ public class GuestSessionServiceTests
     private readonly Mock<IReservationRepository> _mockReservationRepository = new();
     private readonly Mock<IUserRepository> _mockUserRepository = new();
     private readonly Mock<ITableRepository> _mockTableRepository = new();
+    private readonly Mock<IOrderRepository> _mockOrderRepository = new();
     private readonly GuestSessionService _guestSessionService;
 
     public GuestSessionServiceTests()
@@ -37,7 +39,8 @@ public class GuestSessionServiceTests
             _mockDishRepository.Object,
             _mockReservationRepository.Object,
             _mockUserRepository.Object,
-            _mockTableRepository.Object);
+            _mockTableRepository.Object,
+            _mockOrderRepository.Object);
     }
     [Theory]
     [InlineAutoData(0)]
@@ -680,6 +683,394 @@ public class GuestSessionServiceTests
         Assert.Equal(ownerName, result.Name);
         Assert.Equal(dishes.Count(), result.Items.Count());
         Assert.Equal(expectedTotal, result.Total);
+    }
+
+    [Fact]
+    public async Task GetAllSessionsAsync_Owner_ReturnsParticipantsAndTotals()
+    {
+        const string userId = "owner-1";
+        const string groupId = "group-1";
+        var reservation = new Reservation
+        {
+            Id = "reservation-1",
+            TableId = "table-1",
+            WaiterId = "waiter-1",
+            CustomerId = userId
+        };
+        var group = new GroupReservation
+        {
+            GroupReservationId = groupId,
+            ReservationId = reservation.Id,
+            ReservationToken = "token",
+            Status = GroupReservationStatus.Open
+        };
+        var sessions = new List<GuestSession>
+        {
+            new()
+            {
+                Id = "session-1",
+                GroupReservationId = groupId,
+                GuestName = "Andrii",
+                Dishes = [new OrderItem { DishId = "dish-1", Quantity = 2 }],
+                IsSubmitted = true
+            },
+            new()
+            {
+                Id = "session-2",
+                GroupReservationId = groupId,
+                GuestName = "Olena",
+                Dishes = [new OrderItem { DishId = "dish-2", Quantity = 1 }],
+                IsSubmitted = false
+            }
+        };
+        var dishes = new[]
+        {
+            new Dish { Id = "dish-1", Name = "Caesar Salad", Price = 180 },
+            new Dish { Id = "dish-2", Name = "Tom Yum", Price = 220 }
+        };
+
+        _mockGroupReservationRepository.Setup(r => r.GetGroupReservationByIdAsync(groupId)).ReturnsAsync(group);
+        _mockReservationRepository.Setup(r => r.GetReservationByIdAsync(reservation.Id)).ReturnsAsync(reservation);
+        _mockGuestSessionRepository.Setup(r => r.GetAllByGroupReservationIdAsync(groupId)).ReturnsAsync(sessions);
+        _mockDishRepository.Setup(r => r.GetDishesByIdsAsync(It.IsAny<IEnumerable<string>>())).ReturnsAsync(dishes);
+
+        var result = await _guestSessionService.GetAllSessionsAsync(userId, groupId);
+
+        Assert.Equal(2, result.Participants.Count());
+        Assert.Equal(580, result.Total);
+        Assert.Equal(360, result.Participants.First().Total);
+        Assert.Equal("Caesar Salad", result.Participants.First().Items.First().Dish.Name);
+        Assert.Equal(220, result.Participants.Last().Total);
+        Assert.False(result.Participants.Last().IsSubmitted);
+    }
+
+    [Fact]
+    public async Task GetAllSessionsAsync_NonOwner_ThrowsForbidden()
+    {
+        var group = new GroupReservation
+        {
+            GroupReservationId = "group-1",
+            ReservationId = "reservation-1",
+            ReservationToken = "token",
+            Status = GroupReservationStatus.Open
+        };
+        _mockGroupReservationRepository.Setup(r => r.GetGroupReservationByIdAsync(group.GroupReservationId))
+            .ReturnsAsync(group);
+        _mockReservationRepository.Setup(r => r.GetReservationByIdAsync(group.ReservationId))
+            .ReturnsAsync(new Reservation
+            {
+                Id = group.ReservationId,
+                TableId = "table-1",
+                WaiterId = "waiter-1",
+                CustomerId = "actual-owner"
+            });
+
+        await Assert.ThrowsAsync<ActionForbiddenException>(() =>
+            _guestSessionService.GetAllSessionsAsync("another-user", group.GroupReservationId));
+    }
+
+    [Fact]
+    public async Task GetOwnerSessionIdAsync_CreatesSessionOnceAndReturnsItsId()
+    {
+        const string ownerId = "owner-1";
+        var reservation = new Reservation
+        {
+            Id = "reservation-1",
+            TableId = "table-1",
+            WaiterId = "waiter-1",
+            CustomerId = ownerId
+        };
+        var group = new GroupReservation
+        {
+            GroupReservationId = "group-1",
+            ReservationId = reservation.Id,
+            ReservationToken = "token",
+            Status = GroupReservationStatus.Open
+        };
+        GuestSession? savedSession = null;
+        _mockReservationRepository.Setup(r => r.GetReservationByIdAsync(reservation.Id)).ReturnsAsync(reservation);
+        _mockGroupReservationRepository.Setup(r => r.GetByReservationIdAsync(reservation.Id)).ReturnsAsync(group);
+        _mockGuestSessionRepository.Setup(r => r.GetAllByGroupReservationIdAsync(group.GroupReservationId))
+            .ReturnsAsync([]);
+        _mockGuestSessionRepository.Setup(r => r.SaveAsync(It.IsAny<GuestSession>()))
+            .Callback<GuestSession>(session => savedSession = session).Returns(Task.CompletedTask);
+
+        var sessionId = await _guestSessionService.GetOwnerSessionIdAsync(ownerId, reservation.Id);
+
+        Assert.NotNull(savedSession);
+        Assert.Equal(sessionId, savedSession.Id);
+        Assert.True(savedSession.IsOwnerSession);
+        Assert.Equal(ownerId, savedSession.OwnerUserId);
+    }
+
+    [Fact]
+    public async Task SubmitGroupPreOrderAsync_ConsolidatesOnlySubmittedGuestSessions()
+    {
+        const string userId = "owner-1";
+        const string groupId = "group-1";
+        const string reservationId = "reservation-1";
+        var reservation = new Reservation
+        {
+            Id = reservationId,
+            TableId = "table-1",
+            WaiterId = "waiter-1",
+            CustomerId = userId
+        };
+        var group = new GroupReservation
+        {
+            GroupReservationId = groupId,
+            ReservationId = reservationId,
+            ReservationToken = "token",
+            Status = GroupReservationStatus.Open
+        };
+        var sessions = new List<GuestSession>
+        {
+            new()
+            {
+                Id = "submitted-1",
+                GroupReservationId = groupId,
+                GuestName = "Andrii",
+                Dishes = [new OrderItem { DishId = "dish-1", Quantity = 1 }],
+                IsSubmitted = true
+            },
+            new()
+            {
+                Id = "submitted-2",
+                GroupReservationId = groupId,
+                GuestName = "Olena",
+                Dishes = [new OrderItem { DishId = "dish-1", Quantity = 2 }, new OrderItem { DishId = "dish-2", Quantity = 2 }],
+                IsSubmitted = true
+            },
+            new()
+            {
+                Id = "not-submitted",
+                GroupReservationId = groupId,
+                GuestName = "Nino",
+                Dishes = [new OrderItem { DishId = "dish-3", Quantity = 8 }],
+                IsSubmitted = false
+            },
+            new()
+            {
+                Id = "owner-session",
+                GroupReservationId = groupId,
+                GuestName = "Owner",
+                Dishes = [new OrderItem { DishId = "dish-4", Quantity = 9 }],
+                IsOwnerSession = true,
+                IsSubmitted = true
+            }
+        };
+        var order = new Order
+        {
+            OrderId = "order-1",
+            CustomerId = userId,
+            ReservationId = reservationId,
+            ReservationAddress = "Address",
+            ReservationTime = "Time",
+            Dishes = []
+        };
+        _mockGroupReservationRepository.Setup(r => r.GetGroupReservationByIdAsync(groupId)).ReturnsAsync(group);
+        _mockReservationRepository.Setup(r => r.GetReservationByIdAsync(reservationId)).ReturnsAsync(reservation);
+        _mockGuestSessionRepository.Setup(r => r.GetAllByGroupReservationIdAsync(groupId)).ReturnsAsync(sessions);
+        _mockOrderRepository.Setup(r => r.GetOrderByReservationIdAsync(reservationId)).ReturnsAsync(order);
+
+        var result = await _guestSessionService.SubmitGroupPreOrderAsync(userId, groupId, reservationId);
+
+        Assert.Equal(2, result.Count);
+        Assert.Equal(("dish-1", 3), (result[0].DishId, result[0].Quantity));
+        Assert.Equal(("dish-2", 2), (result[1].DishId, result[1].Quantity));
+        Assert.Equal(OrderStatus.SubmittedByCustomer, order.Status);
+        Assert.Equal(GroupReservationStatus.Submitted, group.Status);
+        _mockOrderRepository.Verify(r => r.SaveOrderAsync(order), Times.Once);
+        _mockGroupReservationRepository.Verify(r => r.SaveGroupReservationAsync(group), Times.Once);
+    }
+
+    [Fact]
+    public async Task SubmitGroupPreOrderAsync_WithoutSubmittedGuestSessions_ThrowsValidation()
+    {
+        var group = new GroupReservation
+        {
+            GroupReservationId = "group-1",
+            ReservationId = "reservation-1",
+            ReservationToken = "token",
+            Status = GroupReservationStatus.Open
+        };
+        _mockGroupReservationRepository.Setup(r => r.GetGroupReservationByIdAsync(group.GroupReservationId))
+            .ReturnsAsync(group);
+        _mockReservationRepository.Setup(r => r.GetReservationByIdAsync(group.ReservationId))
+            .ReturnsAsync(new Reservation
+            {
+                Id = group.ReservationId,
+                TableId = "table-1",
+                WaiterId = "waiter-1",
+                CustomerId = "owner-1"
+            });
+        _mockGuestSessionRepository.Setup(r => r.GetAllByGroupReservationIdAsync(group.GroupReservationId))
+            .ReturnsAsync([]);
+
+        await Assert.ThrowsAsync<ValidationException>(() =>
+            _guestSessionService.SubmitGroupPreOrderAsync("owner-1", group.GroupReservationId, group.ReservationId));
+        _mockOrderRepository.Verify(r => r.SaveOrderAsync(It.IsAny<Order>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SubmitGroupPreOrderAsync_SubmittedSessionsWithoutDishes_ThrowsValidation()
+    {
+        var group = new GroupReservation
+        {
+            GroupReservationId = "group-1",
+            ReservationId = "reservation-1",
+            ReservationToken = "token",
+            Status = GroupReservationStatus.Open
+        };
+        _mockGroupReservationRepository.Setup(r => r.GetGroupReservationByIdAsync(group.GroupReservationId))
+            .ReturnsAsync(group);
+        _mockReservationRepository.Setup(r => r.GetReservationByIdAsync(group.ReservationId))
+            .ReturnsAsync(new Reservation
+            {
+                Id = group.ReservationId,
+                TableId = "table-1",
+                WaiterId = "waiter-1",
+                CustomerId = "owner-1"
+            });
+        _mockGuestSessionRepository.Setup(r => r.GetAllByGroupReservationIdAsync(group.GroupReservationId))
+            .ReturnsAsync([
+                new GuestSession
+                {
+                    Id = "session-1",
+                    GroupReservationId = group.GroupReservationId,
+                    GuestName = "Andrii",
+                    Dishes = [],
+                    IsSubmitted = true
+                }
+            ]);
+
+        await Assert.ThrowsAsync<ValidationException>(() =>
+            _guestSessionService.SubmitGroupPreOrderAsync("owner-1", group.GroupReservationId, group.ReservationId));
+        _mockOrderRepository.Verify(r => r.GetOrderByReservationIdAsync(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SubmitGroupPreOrderAsync_OrderNotFound_ThrowsValidation()
+    {
+        var group = new GroupReservation
+        {
+            GroupReservationId = "group-1",
+            ReservationId = "reservation-1",
+            ReservationToken = "token",
+            Status = GroupReservationStatus.Open
+        };
+        _mockGroupReservationRepository.Setup(r => r.GetGroupReservationByIdAsync(group.GroupReservationId))
+            .ReturnsAsync(group);
+        _mockReservationRepository.Setup(r => r.GetReservationByIdAsync(group.ReservationId))
+            .ReturnsAsync(new Reservation
+            {
+                Id = group.ReservationId,
+                TableId = "table-1",
+                WaiterId = "waiter-1",
+                CustomerId = "owner-1"
+            });
+        _mockGuestSessionRepository.Setup(r => r.GetAllByGroupReservationIdAsync(group.GroupReservationId))
+            .ReturnsAsync([
+                new GuestSession
+                {
+                    Id = "session-1",
+                    GroupReservationId = group.GroupReservationId,
+                    GuestName = "Andrii",
+                    Dishes = [new OrderItem { DishId = "dish-1", Quantity = 1 }],
+                    IsSubmitted = true
+                }
+            ]);
+        _mockOrderRepository.Setup(r => r.GetOrderByReservationIdAsync(group.ReservationId))
+            .ReturnsAsync((Order?)null);
+
+        await Assert.ThrowsAsync<ValidationException>(() =>
+            _guestSessionService.SubmitGroupPreOrderAsync("owner-1", group.GroupReservationId, group.ReservationId));
+        _mockOrderRepository.Verify(r => r.SaveOrderAsync(It.IsAny<Order>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DeleteGuestSessionAsync_DeletesGuestAndReturnsUpdatedSnapshot()
+    {
+        const string groupId = "group-1";
+        const string userId = "owner-1";
+        var group = new GroupReservation
+        {
+            GroupReservationId = groupId,
+            ReservationId = "reservation-1",
+            ReservationToken = "token",
+            Status = GroupReservationStatus.Open
+        };
+        var guestToDelete = new GuestSession
+        {
+            Id = "session-1",
+            GroupReservationId = groupId,
+            GuestName = "Andrii",
+            Dishes = []
+        };
+        var remainingSession = new GuestSession
+        {
+            Id = "session-2",
+            GroupReservationId = groupId,
+            GuestName = "Olena",
+            Dishes = [new OrderItem { DishId = "dish-1", Quantity = 1 }],
+            IsSubmitted = false
+        };
+        var reservation = new Reservation
+        {
+            Id = group.ReservationId,
+            TableId = "table-1",
+            WaiterId = "waiter-1",
+            CustomerId = userId
+        };
+        _mockGroupReservationRepository.Setup(r => r.GetGroupReservationByIdAsync(groupId)).ReturnsAsync(group);
+        _mockReservationRepository.Setup(r => r.GetReservationByIdAsync(reservation.Id)).ReturnsAsync(reservation);
+        _mockGuestSessionRepository.Setup(r => r.GetByGuestSessionId(guestToDelete.Id)).ReturnsAsync(guestToDelete);
+        _mockGuestSessionRepository.Setup(r => r.GetAllByGroupReservationIdAsync(groupId))
+            .ReturnsAsync([remainingSession]);
+        _mockDishRepository.Setup(r => r.GetDishesByIdsAsync(It.IsAny<IEnumerable<string>>()))
+            .ReturnsAsync([new Dish { Id = "dish-1", Name = "Tom Yum", Price = 220 }]);
+
+        var snapshot = await _guestSessionService.DeleteGuestSessionAsync(userId, groupId, guestToDelete.Id);
+
+        _mockGuestSessionRepository.Verify(r => r.DeleteAsync(guestToDelete), Times.Once);
+        Assert.Single(snapshot.Participants);
+        Assert.Equal("session-2", snapshot.Participants.Single().Id);
+        Assert.Equal(220, snapshot.Total);
+    }
+
+    [Fact]
+    public async Task DeleteGuestSessionAsync_RejectsOwnerSession()
+    {
+        var group = new GroupReservation
+        {
+            GroupReservationId = "group-1",
+            ReservationId = "reservation-1",
+            ReservationToken = "token",
+            Status = GroupReservationStatus.Open
+        };
+        var reservation = new Reservation
+        {
+            Id = group.ReservationId,
+            TableId = "table-1",
+            WaiterId = "waiter-1",
+            CustomerId = "owner-1"
+        };
+        var session = new GuestSession
+        {
+            Id = "owner-session",
+            GroupReservationId = group.GroupReservationId,
+            GuestName = "Owner",
+            Dishes = [],
+            IsOwnerSession = true
+        };
+        _mockGroupReservationRepository.Setup(r => r.GetGroupReservationByIdAsync(group.GroupReservationId))
+            .ReturnsAsync(group);
+        _mockReservationRepository.Setup(r => r.GetReservationByIdAsync(reservation.Id)).ReturnsAsync(reservation);
+        _mockGuestSessionRepository.Setup(r => r.GetByGuestSessionId(session.Id)).ReturnsAsync(session);
+
+        await Assert.ThrowsAsync<ValidationException>(() =>
+            _guestSessionService.DeleteGuestSessionAsync("owner-1", group.GroupReservationId, session.Id));
+        _mockGuestSessionRepository.Verify(r => r.DeleteAsync(It.IsAny<GuestSession>()), Times.Never);
     }
 
     public static TheoryData<IEnumerable<string>, IEnumerable<Dish>, List<OrderItem>, decimal> PepareDishesForGuestSession()

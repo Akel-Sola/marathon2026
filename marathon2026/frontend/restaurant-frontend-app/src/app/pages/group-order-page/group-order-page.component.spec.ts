@@ -18,6 +18,7 @@ describe('GroupOrderPageComponent', () => {
       'getSessions$',
       'getStatus$',
       'submit$',
+      'removeSession$',
     ]);
 
     const participants: Participant[] = [
@@ -59,5 +60,16 @@ describe('GroupOrderPageComponent', () => {
     expect(element.textContent).toContain('Khachapuri × 2');
     expect(element.textContent).toContain('36');
     expect(service.getSessions$).toHaveBeenCalledWith('group-1');
+  });
+
+  it('updates participant list from the response after removing a guest', () => {
+    service.removeSession$.and.returnValue(of({ participants: [], total: 0 }));
+
+    fixture.componentInstance.removeSession('guest-session-1');
+    fixture.detectChanges();
+
+    expect(service.removeSession$).toHaveBeenCalledWith('group-1', 'guest-session-1');
+    expect(fixture.componentInstance.participants()).toEqual([]);
+    expect(element.textContent).not.toContain('Alex');
   });
 });

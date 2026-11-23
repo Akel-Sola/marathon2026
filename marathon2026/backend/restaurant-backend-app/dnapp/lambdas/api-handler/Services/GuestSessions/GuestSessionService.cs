@@ -31,7 +31,7 @@ public class GuestSessionService(
     IReservationRepository reservationRepository,
     IUserRepository userRepository,
     ITableRepository tableRepository,
-    IOrderRepository? orderRepository = null) : IGuestSessionService
+    IOrderRepository orderRepository) : IGuestSessionService
 {
     public async Task<bool> IsAuthorizedAsync(string guestSessionToken, string guestSessionId)
     {
@@ -181,6 +181,11 @@ public class GuestSessionService(
         var session = await guestSessionRepository.GetByGuestSessionId(guestSessionId)
             ?? throw new GuestSessionNotFoundException($"Guest session with id {guestSessionId} not found.");
 
+        if (session.IsOwnerSession)
+        {
+            throw new ValidationException("The owner session cannot be deleted as a guest session.");
+        }
+
         if (session.GroupReservationId != groupReservationId)
         {
             throw new ValidationException("Guest session does not belong to this group reservation.");
@@ -246,11 +251,13 @@ public class GuestSessionService(
         if (dishes.Count == 0)
             throw new ValidationException("Submitted guest sessions contain no dishes.");
 
-        var order = await (orderRepository ?? throw new InvalidOperationException("Order repository is not configured.")).GetOrderByReservationIdAsync(reservationId)
+        var order = await orderRepository.GetOrderByReservationIdAsync(reservationId)
             ?? throw new ValidationException("Order not found.");
-        order.Dishes = dishes.GroupBy(d => d.DishId)
+
+        var consolidatedDishes = dishes.GroupBy(d => d.DishId)
             .Select(g => new OrderItem { DishId = g.Key, Quantity = g.Sum(d => d.Quantity), State = OrderItemState.Pending })
             .ToList();
+        order.Dishes = consolidatedDishes;
         order.Status = OrderStatus.SubmittedByCustomer;
         await orderRepository.SaveOrderAsync(order);
 
@@ -268,7 +275,7 @@ public class GuestSessionService(
         var participants = new List<Participant>();
         foreach (var session in sessions)
         {
-            var items = session.Dishes.Where(d => dishesById.ContainsKey(d.DishId)).Select(d => new OrderItemResponse
+            var items = (session.Dishes ?? []).Where(d => dishesById.ContainsKey(d.DishId)).Select(d => new OrderItemResponse
             {
                 Dish = DishMapper.ToDishResponse(dishesById[d.DishId]),
                 Quantity = d.Quantity
@@ -366,7 +373,7 @@ public class GuestSessionService(
         var reservation = await reservationRepository.GetReservationByIdAsync(group.ReservationId)
             ?? throw new ReservationNotFoundException("Parent reservation not found.");
 
-        if (reservation.CustomerId != userId)
+        if (!string.Equals(reservation.CustomerId, userId, StringComparison.OrdinalIgnoreCase))
         {
             throw new ActionForbiddenException("Only the reservation owner can perform this action.");
         }

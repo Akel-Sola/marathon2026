@@ -18,6 +18,7 @@ public sealed class GetGroupReservationSessionsHandler(IGuestSessionService serv
             return ResponseBuilder.CreateErrorResponse(401, "Unauthorized.", context.Logger);
         try { return ResponseBuilder.CreateJsonResponse(200, await service.GetAllSessionsAsync(userId, groupId)); }
         catch (GroupReservationNotFoundException ex) { return ResponseBuilder.CreateErrorResponse(404, ex.Message, context.Logger); }
+        catch (ReservationNotFoundException ex) { return ResponseBuilder.CreateErrorResponse(404, ex.Message, context.Logger); }
         catch (ActionForbiddenException ex) { return ResponseBuilder.CreateErrorResponse(403, ex.Message, context.Logger); }
     }
 }
